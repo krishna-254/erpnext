@@ -474,18 +474,17 @@ class POSInvoice(SalesInvoice):
 	def validate_serialised_or_batched_item(self):
 		error_msg = []
 		for d in self.get("items"):
-			error_msg = ""
 			if d.get("has_serial_no") and (
 				(not d.use_serial_batch_fields and not d.serial_and_batch_bundle)
 				or (d.use_serial_batch_fields and not d.serial_no)
 			):
-				error_msg = f"Row #{d.idx}: Please select Serial No. for item {bold(d.item_code)}"
+				error_msg.append(f"Row #{d.idx}: Please select Serial No. for item {bold(d.item_code)}")
 
 			elif d.get("has_batch_no") and (
 				(not d.use_serial_batch_fields and not d.serial_and_batch_bundle)
 				or (d.use_serial_batch_fields and not d.batch_no)
 			):
-				error_msg = f"Row #{d.idx}: Please select Batch No. for item {bold(d.item_code)}"
+				error_msg.append(f"Row #{d.idx}: Please select Batch No. for item {bold(d.item_code)}")
 
 		if error_msg:
 			frappe.throw(error_msg, title=_("Serial / Batch Bundle Missing"), as_list=True)

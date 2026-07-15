@@ -46,6 +46,16 @@ class TestPOSInvoice(POSInvoiceTestMixin):
 
 		self.opening_entry = create_opening_entry(self.pos_profile, self.test_user.name)
 
+	def test_batch_validation_checks_every_item(self):
+		pos_invoice = frappe.new_doc("POS Invoice")
+		pos_invoice.append(
+			"items",
+			{"item_code": "Batched Item", "has_batch_no": 1, "use_serial_batch_fields": 1},
+		)
+		pos_invoice.append("items", {"item_code": "Regular Item"})
+
+		self.assertRaises(frappe.ValidationError, pos_invoice.validate_serialised_or_batched_item)
+
 	def test_timestamp_change(self):
 		w = create_pos_invoice(do_not_save=1)
 		w.docstatus = 0
