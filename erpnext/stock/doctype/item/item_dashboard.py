@@ -29,6 +29,7 @@ def get_data():
 					"Purchase Invoice",
 				],
 			},
+			{"label": _("Subcontracting"), "items": ["Subcontracting Order", "Subcontracting Receipt"]},
 			{"label": _("Manufacture"), "items": ["Production Plan", "Work Order", "Item Manufacturer"]},
 			{"label": _("Traceability"), "items": ["Serial No", "Batch"]},
 			{"label": _("Stock Movement"), "items": ["Stock Entry", "Stock Reconciliation"]},
