@@ -41,7 +41,7 @@ frappe.ui.form.on("Journal Entry", {
 
 	refresh: function (frm) {
 		if (frm.doc.reversal_of && (frm.is_new() || frm.doc.docstatus == 0)) {
-			frm.set_read_only();
+			erpnext.journal_entry.lock_reversal_entry(frm);
 		}
 
 		erpnext.toggle_naming_series();
@@ -492,6 +492,14 @@ frappe.ui.form.on("Journal Entry Account", "accounts_remove", function (frm) {
 });
 
 $.extend(erpnext.journal_entry, {
+	lock_reversal_entry: function (frm) {
+		frm.fields
+			.filter((field) => field.has_input)
+			.filter((field) => field.df.fieldname != "user_remark")
+			.forEach((field) => frm.set_df_property(field.df.fieldname, "read_only", 1));
+		frm.set_df_property("accounts", "read_only", 1);
+	},
+
 	toggle_fields_based_on_currency: function (frm) {
 		var fields = ["currency_section", "account_currency", "exchange_rate", "debit", "credit"];
 
