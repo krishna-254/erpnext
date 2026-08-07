@@ -2,6 +2,7 @@
 # See license.txt
 
 import json
+from unittest.mock import MagicMock, patch
 
 import frappe
 from frappe.utils import add_days, add_to_date, flt, nowtime, today
@@ -18,6 +19,7 @@ from erpnext.stock.doctype.serial_and_batch_bundle.serial_and_batch_bundle impor
 	parse_serial_nos,
 )
 from erpnext.stock.doctype.stock_entry.stock_entry_utils import make_stock_entry
+from erpnext.stock.serial_batch_bundle import SerialBatchBundle
 from erpnext.tests.utils import ERPNextTestSuite
 
 
@@ -1476,6 +1478,23 @@ def make_serial_batch_bundle(kwargs):
 class TestSerialandBatchBundleLogic(ERPNextTestSuite):
 	"""Pure helpers and in-memory document validations, covering branches the
 	integration suite doesn't reach (no stock-ledger / serial / batch fixtures)."""
+
+	def test_cancelled_sle_ignores_links_when_submitting_draft_bundle(self):
+		bundle = MagicMock(voucher_detail_no=None)
+		bundle.flags = frappe._dict()
+		processor = object.__new__(SerialBatchBundle)
+		processor.sle = frappe._dict(
+			serial_and_batch_bundle="SABB-TEST",
+			voucher_detail_no=None,
+			is_cancelled=1,
+		)
+		processor.validate_actual_qty = MagicMock()
+
+		with patch("erpnext.stock.serial_batch_bundle.frappe.get_doc", return_value=bundle):
+			processor.submit_serial_and_batch_bundle()
+
+		self.assertTrue(bundle.flags.ignore_links)
+		bundle.submit.assert_called_once_with()
 
 	def test_parse_serial_nos_splits_and_trims(self):
 		self.assertEqual(parse_serial_nos("SN1\nSN2"), ["SN1", "SN2"])

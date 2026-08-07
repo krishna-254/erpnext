@@ -446,6 +446,8 @@ class SerialBatchBundle:
 		self.validate_actual_qty(doc)
 
 		doc.flags.ignore_voucher_validation = True
+		if self.sle.is_cancelled:
+			doc.flags.ignore_links = True
 		doc.submit()
 
 	def set_warehouse_and_status_in_serial_nos(self):
