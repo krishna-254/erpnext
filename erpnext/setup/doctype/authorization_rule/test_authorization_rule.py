@@ -70,7 +70,12 @@ class TestAuthorizationRule(ERPNextTestSuite):
 			).insert,
 			ignore_permissions=True,
 		)
+		# An omitted hidden type must be filled before Frappe validates the Dynamic Link.
 		rule = self.make_rule(based_on="Itemwise Discount", value=10, master_name="_Test Item").insert(
 			ignore_permissions=True
 		)
+		self.assertEqual(rule.customer_or_item, "Item")
+
+		rule.customer_or_item = "Customer"
+		rule.save(ignore_permissions=True)
 		self.assertEqual(rule.customer_or_item, "Item")

@@ -104,7 +104,8 @@ class AuthorizationRule(Document):
 		elif self.based_on == "Customerwise Discount" and not self.master_name:
 			frappe.throw(_("Customer required for 'Customerwise Discount'"))
 
-	def validate(self):
+	def _validate_links(self):
+		# Frappe checks links before validate, on both insert and save.
 		self.customer_or_item = {
 			"Customerwise Discount": "Customer",
 			"Itemwise Discount": "Item",
@@ -112,6 +113,9 @@ class AuthorizationRule(Document):
 		}.get(self.based_on, "")
 		if not self.customer_or_item:
 			self.master_name = ""
+		super()._validate_links()
+
+	def validate(self):
 		self.validate_rule()
 		self.check_duplicate_entry()
 		if not self.value:
