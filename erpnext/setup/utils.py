@@ -3,6 +3,7 @@
 
 import frappe
 from frappe import _
+from frappe.query_builder import Order
 from frappe.utils import add_days, flt, get_datetime_str, nowdate
 from frappe.utils.data import DateTimeLikeObject
 from frappe.utils.nestedset import get_root_of
@@ -58,6 +59,35 @@ def get_pegged_rate(pegged_map, from_currency, to_currency, transaction_date=Non
 	return None
 
 
+def get_stored_exchange_rate(from_currency, to_currency, transaction_date, args=None, checkpoint_date=None):
+	"""Return the latest rate from Currency Exchange records, or None if there is none.
+
+	On the same date, a record meant only for the requested side (buying or selling)
+	wins over a record meant for both.
+	"""
+	CE = frappe.qb.DocType("Currency Exchange")
+	query = (
+		frappe.qb.from_(CE)
+		.select(CE.exchange_rate)
+		.where(CE.date <= get_datetime_str(transaction_date))
+		.where(CE.from_currency == from_currency)
+		.where(CE.to_currency == to_currency)
+		.orderby(CE.date, order=Order.desc)
+		.limit(1)
+	)
+
+	if args == "for_buying":
+		query = query.where(CE.for_buying == 1).orderby(CE.for_selling)
+	elif args == "for_selling":
+		query = query.where(CE.for_selling == 1).orderby(CE.for_buying)
+
+	if checkpoint_date:
+		query = query.where(CE.date > get_datetime_str(checkpoint_date))
+
+	if rows := query.orderby(CE.name, order=Order.desc).run():
+		return flt(rows[0][0])
+
+
 @frappe.whitelist()
 def get_exchange_rate(
 	from_currency: str | None = None,
@@ -77,32 +107,13 @@ def get_exchange_rate(
 	currency_settings = frappe.get_cached_doc("Accounts Settings")
 	allow_stale_rates = currency_settings.get("allow_stale")
 
-	filters = [
-		["date", "<=", get_datetime_str(transaction_date)],
-		["from_currency", "=", from_currency],
-		["to_currency", "=", to_currency],
-	]
-
-	if args == "for_buying":
-		filters.append(["for_buying", "=", "1"])
-	elif args == "for_selling":
-		filters.append(["for_selling", "=", "1"])
-
+	checkpoint_date = None
 	if not allow_stale_rates:
-		stale_days = currency_settings.get("stale_days")
-		checkpoint_date = add_days(transaction_date, -stale_days)
-		filters.append(["date", ">", get_datetime_str(checkpoint_date)])
+		checkpoint_date = add_days(transaction_date, -currency_settings.get("stale_days"))
 
-	# cksgb 19/09/2016: get last entry in Currency Exchange with from_currency and to_currency.
-	entries = frappe.get_all(
-		"Currency Exchange",
-		fields=["exchange_rate"],
-		filters=filters,
-		order_by="date desc, name desc",
-		limit=1,
-	)
-	if entries:
-		return flt(entries[0].exchange_rate)
+	rate = get_stored_exchange_rate(from_currency, to_currency, transaction_date, args, checkpoint_date)
+	if rate is not None:
+		return rate
 
 	if frappe.get_single_value("Currency Exchange Settings", "disabled"):
 		return 0.00
