@@ -151,10 +151,8 @@ erpnext.PointOfSale.Payment = class {
 
 		const number_format_details = get_number_format_info(frappe.sys_defaults.number_format);
 		const precision = frappe.sys_defaults.currency_precision || number_format_details.precision;
-		this.numpad_value = "0";
-		if (this.selected_mode.get_value()) {
-			this.numpad_value = (this.selected_mode.get_value() * 10 ** precision).toFixed(0).toString();
-		}
+		// get_value() parses the formatted input, which may hide currency decimals.
+		this.numpad_value = (Number(this.selected_mode.value || 0) * 10 ** precision).toFixed(0);
 
 		let valid_input = true;
 		if (button_value === "delete" || button_value === "Backspace") {
