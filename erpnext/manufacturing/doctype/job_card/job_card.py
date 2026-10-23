@@ -182,7 +182,9 @@ class JobCard(Document):
 		self.validate_on_hold()
 		self.set_status()
 		self.set_operation_id()
-		self.validate_sequence_id()
+		# sequence is enforced on start (make_time_log) and once the card has progress
+		if self.time_logs or flt(self.total_completed_qty) or flt(self.process_loss_qty):
+			self.validate_sequence_id()
 		self.set_sub_operations()
 		self.update_sub_operation_status()
 		if self.sub_operations:

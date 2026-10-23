@@ -2453,6 +2453,61 @@ class TestJobCard(ERPNextTestSuite):
 
 		self.assertEqual(jc_c.docstatus, 1)
 
+	def test_unstarted_job_card_saves_before_previous_operations_produce(self):
+		"""Preparation edits on an unstarted job card must not be blocked by the
+		sequence of earlier operations; starting the card still is."""
+		from erpnext.manufacturing.doctype.job_card.job_card import make_time_log
+		from erpnext.manufacturing.doctype.operation.test_operation import make_operation
+		from erpnext.setup.doctype.employee.test_employee import make_employee
+		from erpnext.stock.doctype.item.test_item import make_item
+
+		warehouse = "Stores - _TC"
+		rm = make_item("Unstarted Prep RM", {"is_stock_item": 1}).name
+		fg = make_item("Unstarted Prep FG", {"is_stock_item": 1}).name
+
+		bom = frappe.new_doc("BOM", company="_Test Company", item=fg, quantity=1, with_operations=1)
+		bom.append("items", {"item_code": rm, "qty": 1})
+		for row in (
+			{"operation": "Unstarted Prep Op A", "sequence_id": 1},
+			{"operation": "Unstarted Prep Op B", "sequence_id": 2},
+		):
+			row.update({"workstation": "_Test Workstation A", "time_in_mins": 60})
+			make_workstation(row)
+			make_operation(row)
+			bom.append("operations", row)
+		bom.insert()
+		bom.submit()
+
+		work_order = make_wo_order_test_record(
+			item=fg, qty=5, source_warehouse=warehouse, fg_warehouse=warehouse, do_not_save=True
+		)
+		work_order.save()
+		work_order.submit()
+
+		jc_b = frappe.get_doc(
+			"Job Card",
+			frappe.db.get_value(
+				"Job Card",
+				{"work_order": work_order.name, "operation": "Unstarted Prep Op B", "docstatus": 0},
+				"name",
+			),
+		)
+
+		jc_b.for_quantity = 3
+		jc_b.save()
+		self.assertEqual(jc_b.docstatus, 0)
+
+		employee = make_employee("prep_test@example.com", company="_Test Company")
+		self.assertRaises(
+			OperationSequenceError,
+			make_time_log,
+			{
+				"job_card_id": jc_b.name,
+				"from_time": "2024-01-01 08:00:00",
+				"employees": [{"employee": employee}],
+			},
+		)
+
 	def test_semi_fg_batch_auto_pull_on_manufacture(self):
 		"""Batch produced by an operation should auto-pull into the next operation's
 		semi-finished consumption row (skip-transfer Manufacture entry)."""
